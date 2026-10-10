@@ -19,6 +19,7 @@ export class VirtualFileSystem {
     this.ensureDirectory(`${DUNGEON_ROOT}/.t_0_0`);
     this.ensureDirectory(`${DUNGEON_ROOT}/.t_1_0`);
     this.createSymlink(`${DUNGEON_ROOT}/.t_0_0/east`, `${DUNGEON_ROOT}/.t_1_0`);
+    this.createSymlink(`${DUNGEON_ROOT}/.t_1_0/west`, `${DUNGEON_ROOT}/.t_0_0`);
     this.createFile(`${DUNGEON_ROOT}/.t_1_0/note.txt`, "You found a note.\n");
 
     this.cwd = `${DUNGEON_ROOT}/.t_0_0`;
