@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/vite-env.d.ts","./src/events/eventbus.ts","./src/game/creategame.ts","./src/shell/shell.ts","./src/terminal/terminalui.ts","./src/vfs/virtualfilesystem.ts","./src/vfs/types.ts"],"version":"5.9.3"}

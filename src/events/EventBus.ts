@@ -1,0 +1,24 @@
+export interface GameEvents {
+  dir_changed: string;
+}
+
+type Listener<T> = (payload: T) => void;
+
+/** Minimal typed pub/sub bridge between the VFS/shell and Phaser. */
+export class EventEmitter<Events extends object> {
+  private readonly listeners: { [K in keyof Events]?: Listener<Events[K]>[] } = {};
+
+  on<K extends keyof Events>(event: K, listener: Listener<Events[K]>): void {
+    const existing = this.listeners[event] ?? [];
+    existing.push(listener);
+    this.listeners[event] = existing;
+  }
+
+  emit<K extends keyof Events>(event: K, payload: Events[K]): void {
+    for (const listener of this.listeners[event] ?? []) {
+      listener(payload);
+    }
+  }
+}
+
+export const gameEvents = new EventEmitter<GameEvents>();
