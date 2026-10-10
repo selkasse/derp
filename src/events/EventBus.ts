@@ -1,5 +1,11 @@
+export interface IlluminatedEntry {
+  name: string;
+  type: "file" | "directory" | "symlink";
+}
+
 export interface GameEvents {
   dir_changed: string;
+  room_illuminated: { path: string; entries: IlluminatedEntry[] };
 }
 
 type Listener<T> = (payload: T) => void;

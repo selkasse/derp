@@ -11,7 +11,7 @@ const terminalContainer = document.querySelector<HTMLDivElement>("#terminal-cont
 const vfs = new VirtualFileSystem();
 const shell = new Shell(vfs, gameEvents);
 
-createGame(gameContainer, gameEvents);
+createGame(gameContainer, gameEvents, vfs.getCwd());
 
 const terminal = new TerminalUI(terminalContainer);
 

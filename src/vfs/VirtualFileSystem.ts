@@ -44,6 +44,11 @@ export class VirtualFileSystem {
 
   /** Lists the entry names of a directory (defaults to the cwd). */
   listDirectory(path: string = this.cwd): string[] {
+    return this.listEntries(path).map((entry) => entry.name);
+  }
+
+  /** Lists the entries of a directory (defaults to the cwd) with their node types. */
+  listEntries(path: string = this.cwd): { name: string; type: VfsNode["type"] }[] {
     const node = this.getNode(path);
     if (!node) {
       throw new Error(`ls: cannot access '${path}': No such file or directory`);
@@ -51,7 +56,9 @@ export class VirtualFileSystem {
     if (node.type !== "directory") {
       throw new Error(`ls: cannot access '${path}': Not a directory`);
     }
-    return Array.from(node.children.keys()).sort();
+    return Array.from(node.children.values())
+      .map((child) => ({ name: child.name, type: child.type }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**

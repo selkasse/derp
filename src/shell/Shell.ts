@@ -59,8 +59,9 @@ export class Shell {
 
   private runLs(): string[] {
     try {
-      const entries = this.vfs.listDirectory();
-      return entries.length > 0 ? [entries.join("  ")] : [];
+      const entries = this.vfs.listEntries();
+      this.events.emit("room_illuminated", { path: this.vfs.getCwd(), entries });
+      return entries.length > 0 ? [entries.map((entry) => entry.name).join("  ")] : [];
     } catch (error) {
       return [error instanceof Error ? error.message : String(error)];
     }

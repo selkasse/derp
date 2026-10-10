@@ -7,6 +7,8 @@ const BACKSPACE = "\u007f";
 const CTRL_C = "\u0003";
 const CTRL_U = "\u0015";
 const TAB = "\t";
+const ARROW_UP = "\u001b[A";
+const ARROW_DOWN = "\u001b[B";
 
 export type LineHandler = (line: string) => void;
 export type CompletionHandler = (line: string) => string[];
@@ -35,6 +37,9 @@ export class TerminalUI {
   private lineHandler: LineHandler = () => {};
   private completionHandler: CompletionHandler = () => [];
   private promptText = "$ ";
+  private readonly history: string[] = [];
+  private historyIndex = 0;
+  private draftLine = "";
 
   constructor(container: HTMLElement) {
     this.term = new Terminal({
@@ -84,6 +89,11 @@ export class TerminalUI {
     switch (data) {
       case ENTER:
         this.term.write("\r\n");
+        if (this.lineBuffer.trim().length > 0) {
+          this.history.push(this.lineBuffer);
+        }
+        this.historyIndex = this.history.length;
+        this.draftLine = "";
         this.lineHandler(this.lineBuffer);
         this.lineBuffer = "";
         break;
@@ -105,8 +115,14 @@ export class TerminalUI {
       case TAB:
         this.handleTabCompletion();
         break;
+      case ARROW_UP:
+        this.navigateHistory(-1);
+        break;
+      case ARROW_DOWN:
+        this.navigateHistory(1);
+        break;
       default:
-        // Ignore other control/escape sequences (arrow keys, etc.) for now.
+        // Ignore other control/escape sequences for now.
         if (data >= " ") {
           this.lineBuffer += data;
           this.term.write(data);
@@ -135,6 +151,22 @@ export class TerminalUI {
     }
 
     this.term.write(`\r\n${completions.join("  ")}\r\n`);
+    this.redrawLine();
+  }
+
+  /** Moves `historyIndex` by `direction` (-1 for older, +1 for newer) and loads that entry. */
+  private navigateHistory(direction: -1 | 1): void {
+    if (this.history.length === 0) return;
+
+    if (direction === -1 && this.historyIndex === 0) return;
+    if (direction === 1 && this.historyIndex === this.history.length) return;
+
+    if (this.historyIndex === this.history.length) {
+      this.draftLine = this.lineBuffer;
+    }
+
+    this.historyIndex += direction;
+    this.lineBuffer = this.historyIndex === this.history.length ? this.draftLine : this.history[this.historyIndex];
     this.redrawLine();
   }
 
