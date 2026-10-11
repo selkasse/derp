@@ -1,6 +1,7 @@
 import type { DirectoryNode, FileNode, SymlinkNode, VfsNode } from "./types";
 
-const DUNGEON_ROOT = "/home/player/dungeon";
+const HOME = "/home/player";
+const DUNGEON_ROOT = "/dungeon";
 
 function makeDirectory(name: string): DirectoryNode {
   return { type: "directory", name, children: new Map() };
@@ -22,10 +23,13 @@ export class VirtualFileSystem {
     this.createSymlink(`${DUNGEON_ROOT}/.t_1_0/west`, `${DUNGEON_ROOT}/.t_0_0`);
     this.createFile(
       `${DUNGEON_ROOT}/.t_1_0/note.txt`,
-      `Day 4. My fingers are bleeding from typing 'cd' and 'ls' every time I enter a room. I can't do it anymore. I managed to scrounge up some magic to bend the environment. I wrote \`alias e="cd east; ls"\` into my \`~/.bashrc\` file. Thank god. Now I just type \`e\` and it does both for me. Moving much faster now.`,
+      "The dark absorbs all sound ahead. It demands a voice.",
     );
 
-    this.cwd = `${DUNGEON_ROOT}/.t_0_0`;
+    this.createFile(`${HOME}/.bashrc`, "");
+    this.createSymlink(`${HOME}/dungeon`, `${DUNGEON_ROOT}/.t_0_0`);
+
+    this.cwd = HOME;
   }
 
   getCwd(): string {
@@ -45,13 +49,13 @@ export class VirtualFileSystem {
     return current;
   }
 
-  /** Lists the entry names of a directory (defaults to the cwd). */
-  listDirectory(path: string = this.cwd): string[] {
-    return this.listEntries(path).map((entry) => entry.name);
+  /** Lists the entry names of a directory (defaults to the cwd). Hidden (dotfile) entries are omitted unless `showHidden` is set. */
+  listDirectory(path: string = this.cwd, showHidden = false): string[] {
+    return this.listEntries(path, showHidden).map((entry) => entry.name);
   }
 
-  /** Lists the entries of a directory (defaults to the cwd) with their node types. */
-  listEntries(path: string = this.cwd): { name: string; type: VfsNode["type"] }[] {
+  /** Lists the entries of a directory (defaults to the cwd) with their node types. Hidden (dotfile) entries are omitted unless `showHidden` is set. */
+  listEntries(path: string = this.cwd, showHidden = false): { name: string; type: VfsNode["type"] }[] {
     const node = this.getNode(path);
     if (!node) {
       throw new Error(`ls: cannot access '${path}': No such file or directory`);
@@ -60,6 +64,7 @@ export class VirtualFileSystem {
       throw new Error(`ls: cannot access '${path}': Not a directory`);
     }
     return Array.from(node.children.values())
+      .filter((child) => showHidden || !child.name.startsWith("."))
       .map((child) => ({ name: child.name, type: child.type }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }

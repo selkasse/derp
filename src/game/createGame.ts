@@ -13,9 +13,14 @@ const NOTE_FILE_NAME = "note.txt";
 /** Diegetic hint text shown at each tutorial state; states without an entry show nothing. */
 const TUTORIAL_MESSAGES: Partial<Record<number, string>> = {
   0: "It is too dark to see. List your surroundings. (type `ls` and press Enter)",
-  1: "A path exists. Change your directory to move forward. (type `cd east`)",
-  3: "A remnant left behind. Read its contents. (type `cat note.txt`)",
+  1: "The depths beckon. Step into the dungeon. (type `cd dungeon`)",
+  2: "It is too dark to see. List your surroundings. (type `ls` and press Enter)",
+  3: "A path exists. Change your directory to move forward. (type `cd east`)",
+  5: "A remnant left behind. Read its contents. (type `cat note.txt`)",
 };
+
+/** The tutorial completes and the guide disappears for good at this state. */
+const TUTORIAL_COMPLETE_STATE = 6;
 
 const DIRECTIONS: Record<string, { dx: number; dy: number }> = {
   east: { dx: 1, dy: 0 },
@@ -23,6 +28,12 @@ const DIRECTIONS: Record<string, { dx: number; dy: number }> = {
   north: { dx: 0, dy: -1 },
   south: { dx: 0, dy: 1 },
 };
+
+/** The first dungeon tile is always `.t_0_0`, which doubles as the tutorial's reference point. */
+const DUNGEON_START_COORDS = { x: 0, y: 0 };
+
+/** The home tile isn't part of the dungeon grid, so it gets a fixed spot just outside it. */
+const HOME_COORDS = { x: -1, y: 0 };
 
 /** Tile directories are named `.t_<x>_<y>`, which doubles as their world coordinates. */
 function parseTileCoords(path: string): { x: number; y: number } | undefined {
@@ -35,9 +46,12 @@ function tileCenter(x: number, y: number): { x: number; y: number } {
   return { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
 }
 
-/** Picks a display emoji for a file entry based on its extension. */
-function fileEmoji(name: string): string {
-  return name.endsWith(".txt") ? "📜" : "📄";
+/** Picks a display emoji for an item: a file (by extension) or a non-directional symlink. */
+function entryEmoji(entry: IlluminatedEntry): string {
+  if (entry.type === "symlink") {
+    return entry.name === "dungeon" ? "🏰" : "🚪";
+  }
+  return entry.name.endsWith(".txt") ? "📜" : "📄";
 }
 
 class MainScene extends Phaser.Scene {
@@ -48,14 +62,19 @@ class MainScene extends Phaser.Scene {
 
   private guideText?: Phaser.GameObjects.Text;
   private tutorialState = 0;
-  private readonly startCoords: { x: number; y: number };
+  private readonly startCoords = DUNGEON_START_COORDS;
 
   constructor(
     private readonly gameEvents: EventEmitter<GameEvents>,
     private readonly initialPath: string,
   ) {
     super("main");
-    this.startCoords = parseTileCoords(initialPath) ?? { x: 0, y: 0 };
+  }
+
+  /** Resolves a VFS path to world coordinates: dungeon tiles parse from their name, the home directory gets a fixed spot. */
+  private resolveCoords(path: string): { x: number; y: number } | undefined {
+    if (path === this.initialPath) return HOME_COORDS;
+    return parseTileCoords(path);
   }
 
   create(): void {
@@ -76,6 +95,9 @@ class MainScene extends Phaser.Scene {
 
     this.gameEvents.on("dir_changed", (path) => {
       console.log("[Phaser] dir_changed:", path);
+      if (this.currentPath === this.initialPath) {
+        this.resetWorld();
+      }
       this.spawnAt(path, true);
       this.advanceTutorialOnDirChanged(path);
     });
@@ -98,27 +120,32 @@ class MainScene extends Phaser.Scene {
   }
 
   private advanceTutorialOnIlluminated(path: string): void {
-    const coords = parseTileCoords(path);
+    const coords = this.resolveCoords(path);
     if (!coords) return;
 
-    if (this.tutorialState === 0 && coords.x === this.startCoords.x && coords.y === this.startCoords.y) {
+    if (this.tutorialState === 0 && coords.x === HOME_COORDS.x && coords.y === HOME_COORDS.y) {
       this.setTutorialState(1);
-    } else if (this.tutorialState === 2 && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+    } else if (this.tutorialState === 2 && coords.x === this.startCoords.x && coords.y === this.startCoords.y) {
       this.setTutorialState(3);
+    } else if (this.tutorialState === 4 && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+      this.setTutorialState(5);
     }
   }
 
   private advanceTutorialOnDirChanged(path: string): void {
-    if (this.tutorialState !== 1) return;
-    const coords = parseTileCoords(path);
-    if (coords && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+    const coords = this.resolveCoords(path);
+    if (!coords) return;
+
+    if (this.tutorialState === 1 && coords.x === this.startCoords.x && coords.y === this.startCoords.y) {
       this.setTutorialState(2);
+    } else if (this.tutorialState === 3 && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+      this.setTutorialState(4);
     }
   }
 
   private advanceTutorialOnFileRead(name: string): void {
-    if (this.tutorialState === 3 && name === NOTE_FILE_NAME) {
-      this.setTutorialState(4);
+    if (this.tutorialState === 5 && name === NOTE_FILE_NAME) {
+      this.setTutorialState(TUTORIAL_COMPLETE_STATE);
     }
   }
 
@@ -126,7 +153,7 @@ class MainScene extends Phaser.Scene {
     this.tutorialState = state;
     if (!this.guideText) return;
 
-    if (state === 4) {
+    if (state === TUTORIAL_COMPLETE_STATE) {
       this.guideText.destroy();
       this.guideText = undefined;
       return;
@@ -135,8 +162,19 @@ class MainScene extends Phaser.Scene {
     this.guideText.setText(TUTORIAL_MESSAGES[state] ?? "");
   }
 
+  /** Clears all revealed tiles/items so entering a new area (e.g. the dungeon) repaints a fresh, dark canvas. */
+  private resetWorld(): void {
+    for (const tile of this.tiles.values()) tile.destroy();
+    this.tiles.clear();
+
+    for (const sprites of this.items.values()) {
+      for (const sprite of sprites) sprite.destroy();
+    }
+    this.items.clear();
+  }
+
   private spawnAt(path: string, animate: boolean): void {
-    const coords = parseTileCoords(path);
+    const coords = this.resolveCoords(path);
     if (!coords) return;
 
     this.currentPath = path;
@@ -175,32 +213,37 @@ class MainScene extends Phaser.Scene {
   }
 
   /**
-   * Acts as the "flashlight": symlinked directions reveal the adjacent floor
-   * tile itself (no door sprite), and files are rendered as item emoji on
-   * the current tile.
+   * Acts as the "flashlight": directional symlinks reveal the adjacent floor
+   * tile itself (no door sprite), while files and other symlinks (e.g. the
+   * `dungeon` entrance) are rendered as item emoji on the current tile.
    */
   private illuminateRoom(entries: IlluminatedEntry[]): void {
-    const coords = parseTileCoords(this.currentPath);
+    const coords = this.resolveCoords(this.currentPath);
     if (!coords) return;
 
-    for (const entry of entries) {
+    const itemEntries = entries.filter((entry) => {
+      if (entry.type === "directory") return false;
       if (entry.type === "symlink") {
         const delta = DIRECTIONS[entry.name];
-        if (delta) this.revealTile(coords.x + delta.dx, coords.y + delta.dy);
+        if (delta) {
+          this.revealTile(coords.x + delta.dx, coords.y + delta.dy);
+          return false;
+        }
       }
-    }
+      return true;
+    });
 
-    this.revealItems(coords.x, coords.y, entries.filter((entry) => entry.type === "file"));
+    this.revealItems(coords.x, coords.y, itemEntries);
   }
 
-  private revealItems(x: number, y: number, files: IlluminatedEntry[]): void {
+  private revealItems(x: number, y: number, items: IlluminatedEntry[]): void {
     const key = `${x},${y}`;
     for (const sprite of this.items.get(key) ?? []) sprite.destroy();
 
     const center = tileCenter(x, y);
-    const itemSprites = files.map((file, index) => {
+    const itemSprites = items.map((item, index) => {
       const sprite = this.add
-        .text(center.x - TILE_SIZE / 2 + 20, center.y - TILE_SIZE / 2 + 20 + index * 24, fileEmoji(file.name), {
+        .text(center.x - TILE_SIZE / 2 + 20, center.y - TILE_SIZE / 2 + 20 + index * 24, entryEmoji(item), {
           fontSize: "24px",
         })
         .setOrigin(0.5);

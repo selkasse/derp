@@ -38,7 +38,7 @@ export class Shell {
       case "pwd":
         return [this.vfs.getCwd()];
       case "ls":
-        return this.runLs();
+        return this.runLs(args);
       case "cd":
         return this.runCd(args);
       case "cat":
@@ -72,9 +72,10 @@ export class Shell {
     }
   }
 
-  private runLs(): string[] {
+  private runLs(args: string[]): string[] {
+    const showHidden = args.includes("-a");
     try {
-      const entries = this.vfs.listEntries();
+      const entries = this.vfs.listEntries(this.vfs.getCwd(), showHidden);
       this.events.emit("room_illuminated", { path: this.vfs.getCwd(), entries });
       return entries.length > 0 ? [entries.map((entry) => entry.name).join("  ")] : [];
     } catch (error) {
