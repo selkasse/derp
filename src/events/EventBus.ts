@@ -6,6 +6,7 @@ export interface IlluminatedEntry {
 export interface GameEvents {
   dir_changed: string;
   room_illuminated: { path: string; entries: IlluminatedEntry[] };
+  file_read: { path: string; name: string };
 }
 
 type Listener<T> = (payload: T) => void;

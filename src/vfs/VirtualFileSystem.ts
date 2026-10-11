@@ -20,7 +20,10 @@ export class VirtualFileSystem {
     this.ensureDirectory(`${DUNGEON_ROOT}/.t_1_0`);
     this.createSymlink(`${DUNGEON_ROOT}/.t_0_0/east`, `${DUNGEON_ROOT}/.t_1_0`);
     this.createSymlink(`${DUNGEON_ROOT}/.t_1_0/west`, `${DUNGEON_ROOT}/.t_0_0`);
-    this.createFile(`${DUNGEON_ROOT}/.t_1_0/note.txt`, "You found a note.\n");
+    this.createFile(
+      `${DUNGEON_ROOT}/.t_1_0/note.txt`,
+      `Day 4. My fingers are bleeding from typing 'cd' and 'ls' every time I enter a room. I can't do it anymore. I managed to scrounge up some magic to bend the environment. I wrote \`alias e="cd east; ls"\` into my \`~/.bashrc\` file. Thank god. Now I just type \`e\` and it does both for me. Moving much faster now.`,
+    );
 
     this.cwd = `${DUNGEON_ROOT}/.t_0_0`;
   }
@@ -129,6 +132,25 @@ export class VirtualFileSystem {
       node = next;
     }
     return node;
+  }
+
+  /**
+   * Reads the contents of the file at `path` (relative or absolute),
+   * following symlinks. Throws a `cat`-style error if the path doesn't
+   * resolve, or resolves to a directory.
+   */
+  readFile(path: string): string {
+    const resolved = this.resolvePath(path);
+    if (!resolved) {
+      throw new Error(`cat: ${path}: No such file or directory`);
+    }
+    if (resolved.node.type === "directory") {
+      throw new Error(`cat: ${path}: Is a directory`);
+    }
+    if (resolved.node.type !== "file") {
+      throw new Error(`cat: ${path}: No such file or directory`);
+    }
+    return resolved.node.content;
   }
 
   /** Creates a file (and any missing parent directories) at an absolute path. */

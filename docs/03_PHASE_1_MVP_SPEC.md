@@ -49,6 +49,29 @@ This document outlines the first features to build. Do not proceed to the next f
 - When the player types `cd east`, the Phaser camera pans to 1,0 and moves the player sprite there.
 - When the player types `ls` in the new directory, Phaser renders any files (e.g., `note.txt` as a 📜 emoji) on that specific tile.
 
-## [ ] Feature 5: Command History
+## [x] Feature 5: Command History
 
 - Up and down arrows should cycle through command history
+
+## [x] Feature 6: Reading files (`cat` command)
+
+**Description:** Implement the `cat` command to allow the player to read the contents of text files, specifically using it to read the `note.txt` lore file that teaches them about aliases.
+**Acceptance Criteria:**
+
+- The mock shell can parse and execute the `cat <filename>` command.
+- If the target file exists in the current VFS directory and is a text file, its contents are printed to the terminal display.
+- If the file does not exist, or if the user tries to `cat` a directory/symlink, the terminal outputs a standard Linux error (e.g., `cat: <filename>: No such file or directory` or `cat: <filename>: Is a directory`).
+- Update the VFS initialization for `.t_1_0` so that `note.txt` contains the following string content:
+  _"Day 4. My fingers are bleeding from typing 'cd' and 'ls' every time I enter a room. I can't do it anymore. I managed to scrounge up some magic to bend the environment. I wrote `alias e="cd east; ls"` into my `~/.bashrc` file. Thank god. Now I just type `e` and it does both for me. Moving much faster now."_
+
+## [x] Feature 7: The Ethereal Guide (Tutorial Sequence)
+
+**Description:** Implement a state-based tutorial overlay in the Phaser GUI that gently guides new players through their first three commands (`ls`, `cd`, and `cat`) using diegetic floating text.
+**Acceptance Criteria:**
+
+- Create a Phaser Text object that floats centrally in the upper part of the game screen (or just above the player sprite), styled with a faint, ghostly color (e.g., light gray or translucent white).
+- **State 0 (On game load):** The text reads: _"It is too dark to see. List your surroundings. (type `ls` and press Enter)"_
+- **State 1 (After first `ls`):** When the player successfully executes `ls` in `.t_0_0`, the text updates to: _"A path exists. Change your directory to move forward. (type `cd east`)"_
+- **State 2 (After `cd east`):** When the player enters `.t_1_0`, the text is temporarily cleared/hidden.
+- **State 3 (After second `ls`):** When the player executes `ls` in `.t_1_0` (revealing `note.txt`), the text updates to: _"A remnant left behind. Read its contents. (type `cat note.txt`)"_
+- **State 4 (Completion):** When the player successfully executes `cat note.txt`, the floating text disappears permanently for the remainder of the session.

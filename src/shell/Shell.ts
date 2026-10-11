@@ -1,7 +1,7 @@
 import type { VirtualFileSystem } from "../vfs/VirtualFileSystem";
 import type { EventEmitter, GameEvents } from "../events/EventBus";
 
-const COMMANDS = ["cd", "ls", "pwd"];
+const COMMANDS = ["cat", "cd", "ls", "pwd"];
 
 /** Parses and executes mock shell commands against the VFS. */
 export class Shell {
@@ -41,6 +41,8 @@ export class Shell {
         return this.runLs();
       case "cd":
         return this.runCd(args);
+      case "cat":
+        return this.runCat(args);
       default:
         return [`${command}: command not found`];
     }
@@ -55,6 +57,19 @@ export class Shell {
 
     this.events.emit("dir_changed", this.vfs.getCwd());
     return [];
+  }
+
+  private runCat(args: string[]): string[] {
+    const target = args[0];
+    if (!target) return ["cat: missing operand"];
+
+    try {
+      const content = this.vfs.readFile(target);
+      this.events.emit("file_read", { path: this.vfs.getCwd(), name: target });
+      return content.split("\n");
+    } catch (error) {
+      return [error instanceof Error ? error.message : String(error)];
+    }
   }
 
   private runLs(): string[] {

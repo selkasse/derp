@@ -6,6 +6,16 @@ const TILE_SIZE = 128;
 const DEPTH_TILE = 0;
 const DEPTH_ITEM = 5;
 const DEPTH_PLAYER = 10;
+const DEPTH_GUIDE = 20;
+
+const NOTE_FILE_NAME = "note.txt";
+
+/** Diegetic hint text shown at each tutorial state; states without an entry show nothing. */
+const TUTORIAL_MESSAGES: Partial<Record<number, string>> = {
+  0: "It is too dark to see. List your surroundings. (type `ls` and press Enter)",
+  1: "A path exists. Change your directory to move forward. (type `cd east`)",
+  3: "A remnant left behind. Read its contents. (type `cat note.txt`)",
+};
 
 const DIRECTIONS: Record<string, { dx: number; dy: number }> = {
   east: { dx: 1, dy: 0 },
@@ -36,26 +46,93 @@ class MainScene extends Phaser.Scene {
   private player?: Phaser.GameObjects.Text;
   private currentPath = "";
 
+  private guideText?: Phaser.GameObjects.Text;
+  private tutorialState = 0;
+  private readonly startCoords: { x: number; y: number };
+
   constructor(
     private readonly gameEvents: EventEmitter<GameEvents>,
     private readonly initialPath: string,
   ) {
     super("main");
+    this.startCoords = parseTileCoords(initialPath) ?? { x: 0, y: 0 };
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor("#000000");
 
+    this.guideText = this.add
+      .text(this.scale.width / 2, 24, TUTORIAL_MESSAGES[0] ?? "", {
+        fontSize: "18px",
+        color: "#cccccc",
+        fontStyle: "italic",
+        align: "center",
+        wordWrap: { width: this.scale.width - 80 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setAlpha(0.85)
+      .setDepth(DEPTH_GUIDE);
+
     this.gameEvents.on("dir_changed", (path) => {
       console.log("[Phaser] dir_changed:", path);
       this.spawnAt(path, true);
+      this.advanceTutorialOnDirChanged(path);
     });
 
-    this.gameEvents.on("room_illuminated", ({ entries }) => {
+    this.gameEvents.on("room_illuminated", ({ path, entries }) => {
       this.illuminateRoom(entries);
+      this.advanceTutorialOnIlluminated(path);
+    });
+
+    this.gameEvents.on("file_read", ({ name }) => {
+      this.advanceTutorialOnFileRead(name);
     });
 
     this.spawnAt(this.initialPath, false);
+  }
+
+  /** The tile one step east of the player's starting room — where `note.txt` lives. */
+  private get nextCoords(): { x: number; y: number } {
+    return { x: this.startCoords.x + 1, y: this.startCoords.y };
+  }
+
+  private advanceTutorialOnIlluminated(path: string): void {
+    const coords = parseTileCoords(path);
+    if (!coords) return;
+
+    if (this.tutorialState === 0 && coords.x === this.startCoords.x && coords.y === this.startCoords.y) {
+      this.setTutorialState(1);
+    } else if (this.tutorialState === 2 && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+      this.setTutorialState(3);
+    }
+  }
+
+  private advanceTutorialOnDirChanged(path: string): void {
+    if (this.tutorialState !== 1) return;
+    const coords = parseTileCoords(path);
+    if (coords && coords.x === this.nextCoords.x && coords.y === this.nextCoords.y) {
+      this.setTutorialState(2);
+    }
+  }
+
+  private advanceTutorialOnFileRead(name: string): void {
+    if (this.tutorialState === 3 && name === NOTE_FILE_NAME) {
+      this.setTutorialState(4);
+    }
+  }
+
+  private setTutorialState(state: number): void {
+    this.tutorialState = state;
+    if (!this.guideText) return;
+
+    if (state === 4) {
+      this.guideText.destroy();
+      this.guideText = undefined;
+      return;
+    }
+
+    this.guideText.setText(TUTORIAL_MESSAGES[state] ?? "");
   }
 
   private spawnAt(path: string, animate: boolean): void {
