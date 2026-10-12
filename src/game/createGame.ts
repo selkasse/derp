@@ -17,10 +17,11 @@ const TUTORIAL_MESSAGES: Partial<Record<number, string>> = {
   2: "It is too dark to see. List your surroundings. (type `ls` and press Enter)",
   3: "A path exists. Change your directory to move forward. (type `cd east`)",
   5: "A remnant left behind. Read its contents. (type `cat note.txt`)",
+  7: 'The void demands a voice. (type `echo "hello"`)',
 };
 
 /** The tutorial completes and the guide disappears for good at this state. */
-const TUTORIAL_COMPLETE_STATE = 6;
+const TUTORIAL_COMPLETE_STATE = 8;
 
 const DIRECTIONS: Record<string, { dx: number; dy: number }> = {
   east: { dx: 1, dy: 0 },
@@ -81,7 +82,7 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#000000");
 
     this.guideText = this.add
-      .text(this.scale.width / 2, 24, TUTORIAL_MESSAGES[0] ?? "", {
+      .text(this.scale.width / 2, 24, "", {
         fontSize: "18px",
         color: "#cccccc",
         fontStyle: "italic",
@@ -111,12 +112,29 @@ class MainScene extends Phaser.Scene {
       this.advanceTutorialOnFileRead(name);
     });
 
+    this.gameEvents.on("room_silenced", ({ path }) => {
+      this.advanceTutorialOnRoomSilenced(path);
+    });
+
+    this.gameEvents.on("silence_broken", ({ path }) => {
+      this.advanceTutorialOnSilenceBroken(path);
+    });
+
+    this.gameEvents.on("door_unlocked", ({ path, direction }) => {
+      this.revealAdjacentTile(path, direction);
+    });
+
     this.spawnAt(this.initialPath, false);
   }
 
   /** The tile one step east of the player's starting room — where `note.txt` lives. */
   private get nextCoords(): { x: number; y: number } {
     return { x: this.startCoords.x + 1, y: this.startCoords.y };
+  }
+
+  /** The "Silent Room" (Tile 3) — two steps east of the player's starting room. */
+  private get silentRoomCoords(): { x: number; y: number } {
+    return { x: this.startCoords.x + 2, y: this.startCoords.y };
   }
 
   private advanceTutorialOnIlluminated(path: string): void {
@@ -145,6 +163,28 @@ class MainScene extends Phaser.Scene {
 
   private advanceTutorialOnFileRead(name: string): void {
     if (this.tutorialState === 5 && name === NOTE_FILE_NAME) {
+      this.setTutorialState(6);
+    }
+  }
+
+  private advanceTutorialOnRoomSilenced(path: string): void {
+    const coords = this.resolveCoords(path);
+    if (!coords) return;
+
+    if (this.tutorialState < 7 && coords.x === this.silentRoomCoords.x && coords.y === this.silentRoomCoords.y) {
+      this.setTutorialState(7);
+    }
+  }
+
+  private advanceTutorialOnSilenceBroken(path: string): void {
+    const coords = this.resolveCoords(path);
+    if (!coords) return;
+
+    if (
+      this.tutorialState < TUTORIAL_COMPLETE_STATE &&
+      coords.x === this.silentRoomCoords.x &&
+      coords.y === this.silentRoomCoords.y
+    ) {
       this.setTutorialState(TUTORIAL_COMPLETE_STATE);
     }
   }
@@ -159,7 +199,47 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.guideText.setText(TUTORIAL_MESSAGES[state] ?? "");
+    this.updateGuideText();
+  }
+
+  /** The tile/room each tutorial message is scoped to; its message only shows while the player is there. */
+  private tutorialMessageCoords(state: number): { x: number; y: number } | undefined {
+    switch (state) {
+      case 0:
+      case 1:
+        return HOME_COORDS;
+      case 2:
+      case 3:
+        return this.startCoords;
+      case 5:
+        return this.nextCoords;
+      case 7:
+        return this.silentRoomCoords;
+      default:
+        return undefined;
+    }
+  }
+
+  /** Shows the current tutorial state's message only while the player is in the room it's scoped to. */
+  private updateGuideText(): void {
+    if (!this.guideText) return;
+
+    const message = TUTORIAL_MESSAGES[this.tutorialState];
+    if (!message) {
+      this.guideText.setText("");
+      return;
+    }
+
+    const requiredCoords = this.tutorialMessageCoords(this.tutorialState);
+    if (!requiredCoords) {
+      this.guideText.setText(message);
+      return;
+    }
+
+    const currentCoords = this.resolveCoords(this.currentPath);
+    const inScope =
+      !!currentCoords && currentCoords.x === requiredCoords.x && currentCoords.y === requiredCoords.y;
+    this.guideText.setText(inScope ? message : "");
   }
 
   /** Clears all revealed tiles/items so entering a new area (e.g. the dungeon) repaints a fresh, dark canvas. */
@@ -180,6 +260,15 @@ class MainScene extends Phaser.Scene {
     this.currentPath = path;
     this.revealTile(coords.x, coords.y);
     this.movePlayer(coords.x, coords.y, animate);
+    this.updateGuideText();
+  }
+
+  /** Reveals the tile adjacent to `path` in `direction` (e.g. a door symlink created by solving a puzzle). */
+  private revealAdjacentTile(path: string, direction: string): void {
+    const coords = this.resolveCoords(path);
+    const delta = DIRECTIONS[direction];
+    if (!coords || !delta) return;
+    this.revealTile(coords.x + delta.dx, coords.y + delta.dy);
   }
 
   private revealTile(x: number, y: number): void {

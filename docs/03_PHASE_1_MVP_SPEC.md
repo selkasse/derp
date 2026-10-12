@@ -88,7 +88,7 @@ This document outlines the first features to build. Do not proceed to the next f
 - Inside `.t_1_0` (Tile 2), initialize `note.txt`. The contents read: _"The dark absorbs all sound ahead. It demands a voice."_
 - The shell can execute `cat <filename>`. If it's a valid text file in the current directory, print its contents to the terminal.
 
-## [ ] Feature 9: The "Speak" Command (`echo`)
+## [x] Feature 9: The "Speak" Command (`echo`)
 
 **Description:** Implement `echo` and create the "Silent Room" puzzle in Tile 3 (`.t_2_0`).
 **Acceptance Criteria:**
@@ -98,7 +98,7 @@ This document outlines the first features to build. Do not proceed to the next f
 - If the player types `echo` followed by any string while in `.t_2_0`, remove the "silent" state and output: `The silence shatters.`
 - Subsequent `ls` commands in `.t_2_0` reveal the `east` symlink.
 
-## [ ] Feature 10: The Engraving Puzzle (`>`)
+## [x] Feature 10: The Engraving Puzzle (`>`)
 
 **Description:** Implement basic file writing (overwrite) to solve a dynamic door puzzle in Tile 4 (`.t_3_0`).
 **Acceptance Criteria:**

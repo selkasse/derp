@@ -7,6 +7,9 @@ export interface GameEvents {
   dir_changed: string;
   room_illuminated: { path: string; entries: IlluminatedEntry[] };
   file_read: { path: string; name: string };
+  room_silenced: { path: string };
+  silence_broken: { path: string };
+  door_unlocked: { path: string; direction: string };
 }
 
 type Listener<T> = (payload: T) => void;
