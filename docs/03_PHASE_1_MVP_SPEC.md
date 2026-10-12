@@ -76,7 +76,7 @@ This document outlines the first features to build. Do not proceed to the next f
 - **State 3 (After second `ls`):** When the player executes `ls` in `.t_1_0` (revealing `note.txt`), the text updates to: _"A remnant left behind. Read its contents. (type `cat note.txt`)"_
 - **State 4 (Completion):** When the player successfully executes `cat note.txt`, the floating text disappears permanently for the remainder of the session.
 
-## [ ] Feature 8: The Origin (`~`) and Entering the Dungeon
+## [x] Feature 8: The Origin (`~`) and Entering the Dungeon
 
 **Description:** Set up the actual home directory, implement hidden file logic for `ls`, and use `cat` to read the first lore note.
 **Acceptance Criteria:**
